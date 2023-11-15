@@ -45,14 +45,14 @@ impl Cmd {
 }
 
 #[derive(Logos, Debug, PartialEq)]
-#[logos(skip r"[ ,\t\r\n\f]+")]
+#[logos(skip r"[ ,\t\r\n]+")]
 enum Token {
     // any single character
     #[regex(r"[a-zA-Z]", |lex| Cmd::map(lex.slice().chars().next().expect("char")))]
     Command((Cmd, bool)),
 
     // any floating point number
-    #[regex(r"-?(?:0|[1-9]\d*)(?:\.\d+)?", |lex| lex.slice().parse::<f32>().unwrap_or(0.0))]
+    #[regex(r"-?(?:0|[1-9]\d*)?(?:\.\d+)?", |lex| lex.slice().parse::<f32>().unwrap_or(0.0))]
     Number(f32),
 }
 
@@ -248,21 +248,28 @@ impl<'src> Parser<'src> {
             y: self.py,
         });
 
+        self.l(relative)?;
+
         Ok(())
     }
 
     #[inline]
     fn l(&mut self, relative: bool) -> Result<(), Expected> {
-        let x = self.number()?;
-        let y = self.number()?;
+        loop {
+            let Ok(x) = self.try_number() else {
+                break;
+            };
 
-        self.px = x + if relative { self.px } else { 0.0 };
-        self.py = y + if relative { self.py } else { 0.0 };
+            let y = self.number()?;
 
-        self.commands.push(Command::LineTo {
-            x: self.px,
-            y: self.py,
-        });
+            self.px = x + if relative { self.px } else { 0.0 };
+            self.py = y + if relative { self.py } else { 0.0 };
+
+            self.commands.push(Command::LineTo {
+                x: self.px,
+                y: self.py,
+            });
+        }
 
         Ok(())
     }
@@ -368,6 +375,9 @@ impl<'src> Parser<'src> {
                 x: self.px,
                 y: self.py,
             });
+
+            self.cx = x2 + dx;
+            self.cy = y2 + dy;
         }
 
         Ok(())
