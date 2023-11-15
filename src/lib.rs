@@ -67,14 +67,7 @@ pub enum Command {
         x: f32,
         y: f32,
     },
-    // H x
-    HorizontalLineTo {
-        x: f32,
-    },
-    // V y
-    VerticalLineTo {
-        y: f32,
-    },
+
     // C x1 y1 x2 y2 x y
     CurveTo {
         x1: f32,
@@ -185,7 +178,7 @@ fn parse_path<'src>(lexer: &mut Lexer<'src, Token>) -> Result<Vec<Command>, &'st
                     px = x;
                 }
 
-                commands.push(Command::HorizontalLineTo { x: px });
+                commands.push(Command::LineTo { x: px, y: py });
             }
 
             Token::Command((Cmd::V, relative)) => {
@@ -197,7 +190,7 @@ fn parse_path<'src>(lexer: &mut Lexer<'src, Token>) -> Result<Vec<Command>, &'st
                     py = y;
                 }
 
-                commands.push(Command::VerticalLineTo { y: py });
+                commands.push(Command::LineTo { x: px, y: py });
             }
 
             Token::Command((Cmd::C, relative)) => {
