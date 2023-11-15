@@ -100,6 +100,9 @@ pub enum Command {
     },
     // A rx ry x-axis-rotation large-arc-flag sweep-flag x y
     EllipticalArc {
+        px: f32,
+        py: f32,
+
         rx: f32,
         ry: f32,
         x_axis_rotation: f32,
@@ -281,10 +284,16 @@ fn parse_path<'src>(lexer: &mut Lexer<'src, Token>) -> Result<Vec<Command>, &'st
                         let x = number(lexer)?;
                         let y = number(lexer)?;
 
+                        let x2 = px;
+                        let y2 = py;
+
                         px = dx + x;
                         py = dy + y;
 
                         commands.push(Command::EllipticalArc {
+                            px: x2,
+                            py: y2,
+
                             rx,
                             ry,
                             x_axis_rotation,
