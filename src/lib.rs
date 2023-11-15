@@ -81,6 +81,9 @@ pub enum Command {
     ClosePath,
     // S x2 y2 x y
     SmoothCurveTo {
+        cx: f32,
+        cy: f32,
+
         x2: f32,
         y2: f32,
         x: f32,
@@ -95,6 +98,9 @@ pub enum Command {
     },
     // T x y
     SmoothQuadraticBezierCurveTo {
+        cx: f32,
+        cy: f32,
+
         x: f32,
         y: f32,
     },
@@ -226,10 +232,10 @@ fn parse_path<'src>(lexer: &mut Lexer<'src, Token>) -> Result<Vec<Command>, &'st
                         px = x + dx;
                         py = y + dy;
 
-                        cx = x2 + dx;
-                        cy = y2 + dy;
-
                         commands.push(Command::SmoothCurveTo {
+                            cx,
+                            cy,
+
                             x2: x2 + dx,
                             y2: y2 + dy,
                             x: px,
@@ -272,7 +278,16 @@ fn parse_path<'src>(lexer: &mut Lexer<'src, Token>) -> Result<Vec<Command>, &'st
                         px = x + dx;
                         py = y + dy;
 
-                        commands.push(Command::SmoothQuadraticBezierCurveTo { x: px, y: py });
+                        commands.push(Command::SmoothQuadraticBezierCurveTo {
+                            cx,
+                            cy,
+
+                            x: px,
+                            y: py,
+                        });
+
+                        cx = px;
+                        cy = py;
                     }
 
                     Cmd::A => {
@@ -302,6 +317,9 @@ fn parse_path<'src>(lexer: &mut Lexer<'src, Token>) -> Result<Vec<Command>, &'st
                             x: px,
                             y: py,
                         });
+
+                        cx = px;
+                        cy = py;
                     }
 
                     Cmd::Z => {
