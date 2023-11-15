@@ -119,6 +119,7 @@ fn number(lexer: &mut Lexer<Token>) -> Result<f32, &'static str> {
 }
 
 #[inline]
+#[allow(unused_assignments)]
 fn parse_path<'src>(lexer: &mut Lexer<'src, Token>) -> Result<Vec<Command>, &'static str> {
     let mut commands = Vec::new();
 
@@ -134,199 +135,175 @@ fn parse_path<'src>(lexer: &mut Lexer<'src, Token>) -> Result<Vec<Command>, &'st
     let mut sx = 0.0;
     let mut sy = 0.0;
 
+    let mut last_command = None;
+
     while let Some(Ok(token)) = lexer.next() {
         match token {
-            Token::Command((Cmd::M, relative)) => {
-                let x = number(lexer)?;
-                let y = number(lexer)?;
+            Token::Command((command, relative)) => {
+                let (dx, dy) = if relative { (px, py) } else { (0.0, 0.0) };
 
-                if relative {
-                    px += x;
-                    py += y;
-                } else {
-                    px = x;
-                    py = y;
+                match command {
+                    Cmd::M => {
+                        let x = number(lexer)?;
+                        let y = number(lexer)?;
+
+                        px = x + dx;
+                        py = y + dy;
+
+                        sx = px;
+                        sy = py;
+
+                        commands.push(Command::MoveTo { x: px, y: py });
+                    }
+
+                    Cmd::L => {
+                        let x = number(lexer)?;
+                        let y = number(lexer)?;
+
+                        px = x + dx;
+                        py = y + dy;
+
+                        commands.push(Command::LineTo { x: px, y: py });
+                    }
+
+                    Cmd::H => {
+                        let x = number(lexer)?;
+
+                        px = x + dx;
+
+                        commands.push(Command::LineTo { x: px, y: py });
+                    }
+
+                    Cmd::V => {
+                        let y = number(lexer)?;
+
+                        py = y + dy;
+
+                        commands.push(Command::LineTo { x: px, y: py });
+                    }
+
+                    Cmd::C => {
+                        let x1 = number(lexer)?;
+                        let y1 = number(lexer)?;
+                        let x2 = number(lexer)?;
+                        let y2 = number(lexer)?;
+                        let x = number(lexer)?;
+                        let y = number(lexer)?;
+
+                        px = x + dx;
+                        py = y + dy;
+
+                        cx = x2 + dx;
+                        cy = y2 + dy;
+
+                        commands.push(Command::CurveTo {
+                            x1: x1 + dx,
+                            y1: y1 + dy,
+                            x2: x2 + dx,
+                            y2: y2 + dy,
+                            x: px,
+                            y: py,
+                        });
+                    }
+
+                    Cmd::S => {
+                        let x2 = number(lexer)?;
+                        let y2 = number(lexer)?;
+                        let x = number(lexer)?;
+                        let y = number(lexer)?;
+
+                        if let Some(Cmd::C | Cmd::S) = last_command {
+                            cx = px + (px - cx);
+                            cy = py + (py - cy);
+                        } else {
+                            cx = px;
+                            cy = py;
+                        }
+
+                        px = x + dx;
+                        py = y + dy;
+
+                        cx = x2 + dx;
+                        cy = y2 + dy;
+
+                        commands.push(Command::SmoothCurveTo {
+                            x2: x2 + dx,
+                            y2: y2 + dy,
+                            x: px,
+                            y: py,
+                        });
+                    }
+
+                    Cmd::Q => {
+                        let x1 = number(lexer)?;
+                        let y1 = number(lexer)?;
+                        let x = number(lexer)?;
+                        let y = number(lexer)?;
+
+                        px = x + dx;
+                        py = y + dy;
+
+                        cx = x1 + dx;
+                        cy = y1 + dy;
+
+                        commands.push(Command::QuadraticBezierCurveTo {
+                            x1: x1 + dx,
+                            y1: y1 + dy,
+                            x: px,
+                            y: py,
+                        });
+                    }
+
+                    Cmd::T => {
+                        let x = number(lexer)?;
+                        let y = number(lexer)?;
+
+                        if let Some(Cmd::Q | Cmd::T) = last_command {
+                            cx = px + (px - cx);
+                            cy = py + (py - cy);
+                        } else {
+                            cx = px;
+                            cy = py;
+                        }
+
+                        px = x + dx;
+                        py = y + dy;
+
+                        commands.push(Command::SmoothQuadraticBezierCurveTo { x: px, y: py });
+                    }
+
+                    Cmd::A => {
+                        let rx = number(lexer)?;
+                        let ry = number(lexer)?;
+                        let x_axis_rotation = number(lexer)?;
+                        let large_arc_flag = number(lexer)? != 0.0;
+                        let sweep_flag = number(lexer)? != 0.0;
+                        let x = number(lexer)?;
+                        let y = number(lexer)?;
+
+                        px = dx + x;
+                        py = dy + y;
+
+                        commands.push(Command::EllipticalArc {
+                            rx,
+                            ry,
+                            x_axis_rotation,
+                            large_arc_flag,
+                            sweep_flag,
+                            x: px,
+                            y: py,
+                        });
+                    }
+
+                    Cmd::Z => {
+                        px = sx;
+                        py = sy;
+
+                        commands.push(Command::ClosePath);
+                    }
                 }
 
-                sx = px;
-                sy = py;
-
-                commands.push(Command::MoveTo { x: px, y: py });
-            }
-
-            Token::Command((Cmd::L, relative)) => {
-                let x = number(lexer)?;
-                let y = number(lexer)?;
-
-                if relative {
-                    px += x;
-                    py += y;
-                } else {
-                    px = x;
-                    py = y;
-                }
-
-                commands.push(Command::LineTo { x: px, y: py });
-            }
-
-            Token::Command((Cmd::H, relative)) => {
-                let x = number(lexer)?;
-
-                if relative {
-                    px += x;
-                } else {
-                    px = x;
-                }
-
-                commands.push(Command::LineTo { x: px, y: py });
-            }
-
-            Token::Command((Cmd::V, relative)) => {
-                let y = number(lexer)?;
-
-                if relative {
-                    py += y;
-                } else {
-                    py = y;
-                }
-
-                commands.push(Command::LineTo { x: px, y: py });
-            }
-
-            Token::Command((Cmd::C, relative)) => {
-                let _x1 = number(lexer)?;
-                let _y1 = number(lexer)?;
-                let x2 = number(lexer)?;
-                let y2 = number(lexer)?;
-                let x = number(lexer)?;
-                let y = number(lexer)?;
-
-                if relative {
-                    cx = px + x2;
-                    cy = py + y2;
-                    px += x;
-                    py += y;
-                } else {
-                    cx = x2;
-                    cy = y2;
-                    px = x;
-                    py = y;
-                }
-
-                commands.push(Command::CurveTo {
-                    x1: cx,
-                    y1: cy,
-                    x2: cx,
-                    y2: cy,
-                    x: px,
-                    y: py,
-                });
-            }
-
-            Token::Command((Cmd::S, relative)) => {
-                let x2 = number(lexer)?;
-                let y2 = number(lexer)?;
-                let x = number(lexer)?;
-                let y = number(lexer)?;
-
-                if relative {
-                    cx = px + x2;
-                    cy = py + y2;
-                    px += x;
-                    py += y;
-                } else {
-                    cx = x2;
-                    cy = y2;
-                    px = x;
-                    py = y;
-                }
-
-                commands.push(Command::SmoothCurveTo {
-                    x2: cx,
-                    y2: cy,
-                    x: px,
-                    y: py,
-                });
-            }
-
-            Token::Command((Cmd::Q, relative)) => {
-                let x1 = number(lexer)?;
-                let y1 = number(lexer)?;
-                let x = number(lexer)?;
-                let y = number(lexer)?;
-
-                if relative {
-                    cx = px + x1;
-                    cy = py + y1;
-                    px += x;
-                    py += y;
-                } else {
-                    cx = x1;
-                    cy = y1;
-                    px = x;
-                    py = y;
-                }
-
-                commands.push(Command::QuadraticBezierCurveTo {
-                    x1: cx,
-                    y1: cy,
-                    x: px,
-                    y: py,
-                });
-            }
-
-            Token::Command((Cmd::T, relative)) => {
-                let x = number(lexer)?;
-                let y = number(lexer)?;
-
-                if relative {
-                    cx = px + (px - cx);
-                    cy = py + (py - cy);
-                    px += x;
-                    py += y;
-                } else {
-                    cx = px + (px - cx);
-                    cy = py + (py - cy);
-                    px = x;
-                    py = y;
-                }
-
-                commands.push(Command::SmoothQuadraticBezierCurveTo { x: px, y: py });
-            }
-
-            Token::Command((Cmd::A, relative)) => {
-                let rx = number(lexer)?;
-                let ry = number(lexer)?;
-                let x_axis_rotation = number(lexer)?;
-                let large_arc_flag = if number(lexer)? != 0.0 { true } else { false };
-                let sweep_flag = if number(lexer)? != 0.0 { true } else { false };
-                let x = number(lexer)?;
-                let y = number(lexer)?;
-
-                if relative {
-                    px += x;
-                    py += y;
-                } else {
-                    px = x;
-                    py = y;
-                }
-
-                commands.push(Command::EllipticalArc {
-                    rx,
-                    ry,
-                    x_axis_rotation,
-                    large_arc_flag,
-                    sweep_flag,
-                    x: px,
-                    y: py,
-                });
-            }
-
-            Token::Command((Cmd::Z, _)) => {
-                px = sx;
-                py = sy;
-
-                commands.push(Command::ClosePath);
+                last_command = Some(command);
             }
             Token::Number(_) => return Err("expected command"),
         }
