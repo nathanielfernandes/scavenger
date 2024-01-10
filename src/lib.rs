@@ -1,4 +1,8 @@
+mod simplification;
+pub mod viewbox;
+
 use logos::{Lexer, Logos};
+use simplification::{calculate_ellipse_parameters, push_eliptical_cmds};
 use std::iter::Peekable;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -105,19 +109,19 @@ pub enum Command {
         x: f32,
         y: f32,
     },
-    // A rx ry x-axis-rotation large-arc-flag sweep-flag x y
-    EllipticalArc {
-        px: f32,
-        py: f32,
+    // // A rx ry x-axis-rotation large-arc-flag sweep-flag x y
+    // EllipticalArc {
+    //     px: f32,
+    //     py: f32,
 
-        rx: f32,
-        ry: f32,
-        x_axis_rotation: f32,
-        large_arc_flag: bool,
-        sweep_flag: bool,
-        x: f32,
-        y: f32,
-    },
+    //     rx: f32,
+    //     ry: f32,
+    //     x_axis_rotation: f32,
+    //     large_arc_flag: bool,
+    //     sweep_flag: bool,
+    //     x: f32,
+    //     y: f32,
+    // },
 }
 
 pub struct Parser<'src> {
@@ -131,6 +135,8 @@ pub struct Parser<'src> {
 
     sx: f32,
     sy: f32,
+
+    bezier_steps: i32,
 
     last_command: Option<Cmd>,
 
@@ -159,10 +165,17 @@ impl<'src> Parser<'src> {
             sx: 0.0,
             sy: 0.0,
 
+            bezier_steps: 16,
+
             last_command: None,
 
             commands: Vec::new(),
         }
+    }
+
+    pub fn bezier_steps(mut self, bezier_steps: i32) -> Self {
+        self.bezier_steps = bezier_steps;
+        self
     }
 
     pub fn parse(mut self) -> Result<Vec<Command>, Expected> {
@@ -471,18 +484,42 @@ impl<'src> Parser<'src> {
             self.px = dx + x;
             self.py = dy + y;
 
-            self.commands.push(Command::EllipticalArc {
-                px: x2,
-                py: y2,
+            // self.commands.push(Command::EllipticalArc {
+            //     px: x2,
+            //     py: y2,
 
+            //     rx,
+            //     ry,
+            //     x_axis_rotation,
+            //     large_arc_flag,
+            //     sweep_flag,
+            //     x: self.px,
+            //     y: self.py,
+            // });
+
+            if let Some((cx, cy, start_angle, delta_angle)) = calculate_ellipse_parameters(
+                x2,
+                y2,
+                self.px,
+                self.py,
                 rx,
                 ry,
                 x_axis_rotation,
                 large_arc_flag,
                 sweep_flag,
-                x: self.px,
-                y: self.py,
-            });
+            ) {
+                push_eliptical_cmds(
+                    &mut self.commands,
+                    cx,
+                    cy,
+                    rx,
+                    ry,
+                    start_angle,
+                    start_angle + delta_angle,
+                    x_axis_rotation,
+                    self.bezier_steps,
+                );
+            }
 
             self.cx = self.px;
             self.cy = self.py;
