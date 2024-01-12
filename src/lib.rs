@@ -1,3 +1,4 @@
+pub mod path;
 mod simplification;
 pub mod viewbox;
 
@@ -109,19 +110,66 @@ pub enum Command {
         x: f32,
         y: f32,
     },
-    // // A rx ry x-axis-rotation large-arc-flag sweep-flag x y
-    // EllipticalArc {
-    //     px: f32,
-    //     py: f32,
+}
 
-    //     rx: f32,
-    //     ry: f32,
-    //     x_axis_rotation: f32,
-    //     large_arc_flag: bool,
-    //     sweep_flag: bool,
-    //     x: f32,
-    //     y: f32,
-    // },
+impl Command {
+    pub(crate) fn translate(self, tx: f32, ty: f32) -> Command {
+        match self {
+            Command::MoveTo { x, y } => Command::MoveTo {
+                x: x + tx,
+                y: y + ty,
+            },
+            Command::LineTo { x, y } => Command::LineTo {
+                x: x + tx,
+                y: y + ty,
+            },
+            Command::CurveTo {
+                x1,
+                y1,
+                x2,
+                y2,
+                x,
+                y,
+            } => Command::CurveTo {
+                x1: x1 + tx,
+                y1: y1 + ty,
+                x2: x2 + tx,
+                y2: y2 + ty,
+                x: x + tx,
+                y: y + ty,
+            },
+            Command::ClosePath => Command::ClosePath,
+            Command::SmoothCurveTo {
+                cx,
+                cy,
+                x2,
+                y2,
+                x,
+                y,
+            } => Command::SmoothCurveTo {
+                cx: cx + tx,
+                cy: cy + ty,
+                x2: x2 + tx,
+                y2: y2 + ty,
+                x: x + tx,
+                y: y + ty,
+            },
+            Command::QuadraticBezierCurveTo { x1, y1, x, y } => Command::QuadraticBezierCurveTo {
+                x1: x1 + tx,
+                y1: y1 + ty,
+                x: x + tx,
+                y: y + ty,
+            },
+            Command::SmoothQuadraticBezierCurveTo { cx, cy, x, y } => {
+                Command::SmoothQuadraticBezierCurveTo {
+                    cx: cx + tx,
+                    cy: cy + ty,
+                    x: x + tx,
+                    y: y + ty,
+                }
+            }
+        }
+    }
 }
 
 pub struct Parser<'src> {
@@ -483,19 +531,6 @@ impl<'src> Parser<'src> {
 
             self.px = dx + x;
             self.py = dy + y;
-
-            // self.commands.push(Command::EllipticalArc {
-            //     px: x2,
-            //     py: y2,
-
-            //     rx,
-            //     ry,
-            //     x_axis_rotation,
-            //     large_arc_flag,
-            //     sweep_flag,
-            //     x: self.px,
-            //     y: self.py,
-            // });
 
             if let Some((cx, cy, start_angle, delta_angle)) = calculate_ellipse_parameters(
                 x2,

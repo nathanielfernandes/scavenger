@@ -1,4 +1,4 @@
-use crate::Command;
+use crate::{path::Path, Command};
 
 #[derive(Debug, Clone, Copy)]
 pub struct ViewBox {
@@ -30,7 +30,7 @@ impl ViewBox {
     }
 
     #[inline(always)]
-    fn scale_cmd(&self, cmd: &Command, w: f32, h: f32) -> Command {
+    pub(crate) fn scale_cmd(&self, cmd: &Command, w: f32, h: f32) -> Command {
         match cmd {
             Command::MoveTo { x, y } => Command::MoveTo {
                 x: self.scale_x(*x, w),
@@ -88,25 +88,15 @@ impl ViewBox {
         }
     }
 
-    #[inline(always)]
-    pub fn scale_path(&self, path: &[Command]) -> Vec<Command> {
-        let (w, h) = estimate_dimensions(path);
-
-        path.iter().map(|cmd| self.scale_cmd(cmd, w, h)).collect()
+    pub fn scale_path(&self, path: &Path) -> Vec<Command> {
+        path.commands
+            .iter()
+            .map(|cmd| self.scale_cmd(cmd, path.bb.0, path.bb.1))
+            .collect()
     }
 
-    #[inline(always)]
-    pub fn scale_path_mut(&self, path: &mut [Command]) {
-        let (w, h) = estimate_dimensions(path);
-
-        for cmd in path.iter_mut() {
-            *cmd = self.scale_cmd(cmd, w, h);
-        }
-    }
-
-    pub fn scale_iter<'a>(&'a self, path: &'a [Command]) -> ScaledIterator {
-        let (w, h) = estimate_dimensions(path);
-        ScaledIterator::new(self, path.iter(), (w, h))
+    pub fn scale_iter<'a>(&'a self, path: &'a Path) -> ScaledIterator {
+        ScaledIterator::new(self, path.commands.iter(), path.bb)
     }
 }
 
@@ -117,7 +107,11 @@ pub struct ScaledIterator<'a> {
 }
 
 impl<'a> ScaledIterator<'a> {
-    fn new(view_box: &'a ViewBox, iter: std::slice::Iter<'a, Command>, dims: (f32, f32)) -> Self {
+    pub(crate) fn new(
+        view_box: &'a ViewBox,
+        iter: std::slice::Iter<'a, Command>,
+        dims: (f32, f32),
+    ) -> Self {
         Self {
             view_box,
             iter,
@@ -136,7 +130,8 @@ impl<'a> Iterator for ScaledIterator<'a> {
     }
 }
 
-pub fn estimate_dimensions(path: &[Command]) -> (f32, f32) {
+// calcualte the bounding box of a path, returns (width, height) (x and y are always 0)
+pub fn calculate_bb<'a, I: IntoIterator<Item = &'a Command>>(path: I) -> (f32, f32) {
     let mut min_x = 0.0f32;
     let mut min_y = 0.0f32;
     let mut max_x = 0.0f32;

@@ -1,54 +1,5 @@
 use crate::Command;
 
-// pub fn simplify_arcs(cmds: &[Command], bezier_steps: i32) -> Vec<Command> {
-//     let mut simp = Vec::with_capacity(cmds.len());
-
-//     for cmd in cmds {
-//         if let Command::EllipticalArc {
-//             px,
-//             py,
-//             rx,
-//             ry,
-//             x_axis_rotation,
-//             large_arc_flag,
-//             sweep_flag,
-//             x,
-//             y,
-//         } = *cmd
-//         {
-//             if let Some((cx, cy, start_angle, delta_angle)) = calculate_ellipse_parameters(
-//                 px,
-//                 py,
-//                 x,
-//                 y,
-//                 rx,
-//                 ry,
-//                 x_axis_rotation,
-//                 large_arc_flag,
-//                 sweep_flag,
-//             ) {
-//                 push_eliptical_cmds(
-//                     &mut simp,
-//                     cx,
-//                     cy,
-//                     rx,
-//                     ry,
-//                     start_angle,
-//                     start_angle + delta_angle,
-//                     x_axis_rotation,
-//                     bezier_steps,
-//                 );
-//             }
-
-//             continue;
-//         } else {
-//             simp.push(*cmd);
-//         }
-//     }
-
-//     simp
-// }
-
 pub(crate) fn calculate_ellipse_parameters(
     x0: f32,
     y0: f32, // Start point
